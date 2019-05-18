@@ -1769,8 +1769,8 @@ namespace rsx
 					return;
 				}
 
-				const auto slice_begin = u32(slice * src_slice_h);
-				const auto slice_end = u32(slice_begin + slice_h);
+				const auto slice_begin = (slice * src_slice_h);
+				const auto slice_end = (slice_begin + slice_h);
 
 				const auto dst_y = std::get<1>(clipped).y;
 				const auto dst_h = std::get<2>(clipped).height;
@@ -2144,8 +2144,15 @@ namespace rsx
 
 			if (LIKELY(is_compressed_format))
 			{
+<<<<<<< HEAD
 				// Most mesh textures are stored as compressed to make the most of the limited memory
 				if (auto cached_texture = find_texture_from_dimensions(texaddr, format, tex_width, tex_height, depth))
+=======
+				// Optimize the range a bit by only searching for mip0, layer0 to avoid false positives
+				const auto texel_rows_per_line = get_format_texel_rows_per_line(format);
+				const auto num_rows = (tex_height + texel_rows_per_line - 1) / texel_rows_per_line;
+				if (const auto length = num_rows * tex_pitch; length < tex_range.length())
+>>>>>>> parent of dbc8e70dd... rsx: Silence some compiler noise
 				{
 					return{ cached_texture->get_view(tex.remap(), tex.decoded_remap()), cached_texture->get_context(), cached_texture->is_depth_texture(), scale_x, scale_y, cached_texture->get_image_type() };
 				}

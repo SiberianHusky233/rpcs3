@@ -172,8 +172,12 @@ struct gl_render_target_traits
 		std::unique_ptr<gl::render_target> result(new gl::render_target(rsx::apply_resolution_scale((u16)width, true),
 			rsx::apply_resolution_scale((u16)height, true), (GLenum)internal_fmt));
 		result->set_native_pitch((u16)width * format.channel_count * format.channel_size);
+<<<<<<< HEAD
 		result->set_surface_dimensions((u16)width, (u16)height, (u16)pitch);
 		result->set_format(surface_color_format);
+=======
+		result->set_surface_dimensions(width, height, (u16)pitch);
+>>>>>>> parent of dbc8e70dd... rsx: Silence some compiler noise
 
 		std::array<GLenum, 4> native_layout = { (GLenum)format.swizzle.a, (GLenum)format.swizzle.r, (GLenum)format.swizzle.g, (GLenum)format.swizzle.b };
 		result->set_native_component_layout(native_layout);
@@ -202,7 +206,7 @@ struct gl_render_target_traits
 
 		std::array<GLenum, 4> native_layout = { GL_RED, GL_RED, GL_RED, GL_RED };
 		result->set_native_pitch(native_pitch);
-		result->set_surface_dimensions((u16)width, (u16)height, (u16)pitch);
+		result->set_surface_dimensions(width, height, (u16)pitch);
 		result->set_native_component_layout(native_layout);
 		result->set_format(surface_depth_format);
 
