@@ -657,8 +657,8 @@ void gl::render_target::memory_barrier(gl::command_context& cmd, bool force_init
 		return;
 	}
 
-	const auto src_bpp = src_texture->get_bpp();
-	const auto dst_bpp = get_bpp();
+	auto src_bpp = src_texture->get_native_pitch() / src_texture->get_surface_width();
+	auto dst_bpp = get_native_pitch() / get_surface_width();
 	rsx::typeless_xfer typeless_info{};
 
 	if (get_internal_format() == src_texture->get_internal_format())
