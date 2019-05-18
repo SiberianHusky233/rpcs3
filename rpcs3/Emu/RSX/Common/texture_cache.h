@@ -2546,17 +2546,6 @@ namespace rsx
 				}
 			}
 
-			// Sanity and format compatibility checks
-			if (dst_is_render_target)
-			{
-				if (src_subres.is_depth != dst_subres.is_depth)
-				{
-					// Create a cache-local resource to resolve later
-					// TODO: Support depth->RGBA typeless transfer for vulkan
-					dst_is_render_target = false;
-				}
-			}
-
 			if (src_is_render_target)
 			{
 				src_subres.surface->read_barrier(cmd);
@@ -2616,11 +2605,12 @@ namespace rsx
 
 			reader_lock lock(m_cache_mutex);
 
-			const auto old_dst_area = dst_area;
 			if (!dst_is_render_target)
 			{
 				// Check for any available region that will fit this one
 				auto overlapping_surfaces = find_texture_from_range(address_range::start_length(dst_address, dst.pitch * dst.clip_height), dst.pitch, rsx::texture_upload_context::blit_engine_dst);
+				const auto old_dst_area = dst_area;
+
 				for (const auto &surface : overlapping_surfaces)
 				{
 					if (!surface->is_locked())
@@ -2682,42 +2672,48 @@ namespace rsx
 				max_dst_height = dst_subres.surface->get_surface_height();
 			}
 
-			// Check if available target is acceptable
-			// TODO: Check for other types of format mismatch
-			bool format_mismatch = false;
-			if (cached_dest)
+			const bool src_is_depth = src_subres.is_depth;
+			const bool dst_is_depth = dst_is_render_target? dst_subres.is_depth :
+										dest_texture ? cached_dest->is_depth_texture() : src_is_depth;
+
+			// Type of blit decided by the source, destination use should adapt on the fly
+			const bool is_depth_blit = src_is_depth;
+
+			bool format_mismatch = (src_is_depth != dst_is_depth);
+			if (format_mismatch)
 			{
-				if (cached_dest->is_depth_texture() != src_subres.is_depth)
+				if (dst_is_render_target)
 				{
-					// Dest surface has the wrong 'aspect'
-					format_mismatch = true;
+					LOG_ERROR(RSX, "Depth<->RGBA blit on a framebuffer requested but not supported");
+					return false;
 				}
-				else
+			}
+			else if (src_is_render_target && cached_dest)
+			{
+				switch (cached_dest->get_gcm_format())
 				{
-					// Check if it matches the transfer declaration
-					switch (cached_dest->get_gcm_format())
-					{
-					case CELL_GCM_TEXTURE_A8R8G8B8:
-					case CELL_GCM_TEXTURE_DEPTH24_D8:
-						format_mismatch = !dst_is_argb8;
-						break;
-					case CELL_GCM_TEXTURE_R5G6B5:
-					case CELL_GCM_TEXTURE_DEPTH16:
-						format_mismatch = dst_is_argb8;
-						break;
-					default:
-						format_mismatch = true;
-						break;
-					}
+				case CELL_GCM_TEXTURE_A8R8G8B8:
+				case CELL_GCM_TEXTURE_DEPTH24_D8:
+					format_mismatch = !dst_is_argb8;
+					break;
+				case CELL_GCM_TEXTURE_R5G6B5:
+				case CELL_GCM_TEXTURE_DEPTH16:
+					format_mismatch = dst_is_argb8;
+					break;
+				default:
+					format_mismatch = true;
+					break;
 				}
 			}
 
+			//TODO: Check for other types of format mismatch
+			const address_range dst_range = address_range::start_length(dst_address, dst.pitch * dst.height);
+			AUDIT(cached_dest == nullptr || cached_dest->overlaps(dst_range, section_bounds::full_range));
 			if (format_mismatch)
 			{
 				// The invalidate call before creating a new target will remove this section
 				cached_dest = nullptr;
 				dest_texture = 0;
-				dst_area = old_dst_area;
 			}
 
 			// Create source texture if does not exist
@@ -2830,10 +2826,7 @@ namespace rsx
 				typeless_info.src_context = texture_upload_context::framebuffer_storage;
 			}
 
-			// Type of blit decided by the source, destination use should adapt on the fly
-			const bool is_depth_blit = src_subres.is_depth;
 			u32 gcm_format;
-
 			if (is_depth_blit)
 				gcm_format = (dst_is_argb8) ? CELL_GCM_TEXTURE_DEPTH24_D8 : CELL_GCM_TEXTURE_DEPTH16;
 			else
